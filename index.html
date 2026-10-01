@@ -4,7 +4,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#06101d,#102b47);color:#fff}
 .wrap{max-width:1050px;margin:auto;padding:16px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0 18px}
-.logo{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:#e9b93f;color:#071526;font-weight:900;font-size:23px}
+.logo{width:72px;height:72px;border-radius:16px;display:block;object-fit:cover;border:1px solid #f3c64e66;box-shadow:0 8px 20px #0006}
 .brand{display:flex;gap:12px;align-items:center}.brand h1{margin:0;color:#f3c64e}.brand small,.muted{color:#aebccc}
 button{cursor:pointer;border:0;border-radius:12px;padding:12px 15px;font-weight:800}.admin{background:#162c43;color:#f3c64e;border:1px solid #f3c64e66}
 .card{background:#0b1c30;border:1px solid #ffffff15;border-radius:20px;padding:19px;margin:15px 0;box-shadow:0 15px 35px #0005}
@@ -15,7 +15,18 @@ label{display:block;font-weight:700;margin:11px 0 6px}input,select{width:100%;pa
 .wa{width:100%;background:#20c66a;color:white;font-size:16px}.copy{background:#f3c64e;color:#071526;padding:8px 10px}.pay{background:#061525;padding:13px;border-radius:13px;margin:9px 0}.payrow{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .hidden{display:none}.err{color:#ff9898;font-weight:700}.ok{color:#7ce6a5}.hist{border-bottom:1px solid #ffffff12;padding:9px 0}
 </style></head><body><div class="wrap">
-<div class="top"><div class="brand"><div class="logo">DC</div><div><h1>Dorca Conecta</h1><small>Calculadora Colombia ↔ Venezuela</small></div></div><button class="admin" onclick="adminOpen()">Administrador</button></div>
+<div class="top"><div class="brand"><img class="logo" src="/logo-dorca.png" alt="Dorca Conecta"><div><h1>Dorca Conecta</h1><small>Calculadora Colombia ↔ Venezuela</small></div></div><button class="admin" onclick="adminOpen()">Administrador</button></div>
+
+<section class="card" id="topRates">
+<h2>💱 Tasas vigentes</h2>
+<p class="muted">Consulta las tasas publicadas antes de realizar tu operación.</p>
+<div class="grid">
+<div class="pay"><b>🇨🇴 → 🇻🇪 Colombia → Venezuela</b><div id="topCoVe" class="big">3,98</div></div>
+<div class="pay"><b>🇻🇪 → 🇨🇴 Venezuela → Colombia</b><div id="topVeCo" class="big">3,00</div></div>
+<div class="pay"><b>💵 Dólar Colombia</b><div id="topUsdCo" class="big">$ 3.330 COP</div></div>
+<div class="pay"><b>💵 Dólar Venezuela / BCV</b><div id="topUsdVe" class="big">855,66 Bs</div></div>
+</div><p id="topDate" class="muted" style="margin-bottom:0">Tasas publicadas</p>
+</section>
 
 <section class="card"><h2>Calcula tu operación</h2><p class="muted">Calcula cuánto envías y cuánto recibe la otra persona.</p>
 <div class="tabs"><button id="a" class="tab active" onclick="modeSet('coVe')">🇨🇴 Colombia → 🇻🇪 Venezuela</button><button id="b" class="tab" onclick="modeSet('veCo')">🇻🇪 Venezuela → 🇨🇴 Colombia</button></div>
@@ -63,7 +74,9 @@ const coVe=$('coVe'), veCo=$('veCo'), usdCo=$('usdCo'), usdVe=$('usdVe');
 const from=$('from'), to=$('to'), note=$('note'), history=$('history');
 const coPays=$('coPays'), vePays=$('vePays');
 const pubCoVe=$('pubCoVe'), pubVeCo=$('pubVeCo'), pubUsdCo=$('pubUsdCo'), pubUsdVe=$('pubUsdVe'), pubDate=$('pubDate');
+const topCoVe=$('topCoVe'), topVeCo=$('topVeCo'), topUsdCo=$('topUsdCo'), topUsdVe=$('topUsdVe'), topDate=$('topDate');
 let mode='coVe',R={coVe:3.98,veCo:3,usdCo:3330,usdVe:855.66},pw='';
+function renderRates(){pubCoVe.textContent=f(R.coVe);pubVeCo.textContent=f(R.veCo);pubUsdCo.textContent='$ '+f(R.usdCo)+' COP';pubUsdVe.textContent=f(R.usdVe)+' Bs';topCoVe.textContent=f(R.coVe);topVeCo.textContent=f(R.veCo);topUsdCo.textContent='$ '+f(R.usdCo)+' COP';topUsdVe.textContent=f(R.usdVe)+' Bs';}
 const WA='573019211382';
 const co=[['Dorca Pinto','3019211382'],['Eliexer Bolívar','3245364232'],['Ashley Bolívar','3207545616'],['Llave Bre','@dorca057']];
 function f(n){return new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(n)}
@@ -105,23 +118,30 @@ async function save(){
 }
 function showHist(d){history.innerHTML=(d.rates||[]).map(x=>`<div class="hist"><b>${x.valid_from}</b> ${x.valid_to?'→ '+x.valid_to:'→ vigente'}<br>CO→VE ${x.co_ve} · VE→CO ${x.ve_co} · USD CO ${f(x.usd_colombia)} · USD VE ${f(x.usd_venezuela)}</div>`).join('')||'Sin historial'}
 async function load(){
+  // Valores de respaldo visibles inmediatamente; la API los reemplaza con la tasa publicada real.
+  pubCoVe.textContent=f(R.coVe);
+  pubVeCo.textContent=f(R.veCo);
+  pubUsdCo.textContent='$ '+f(R.usdCo)+' COP';
+  pubUsdVe.textContent=f(R.usdVe)+' Bs';
+  pubDate.textContent='Cargando tasas publicadas…';
   try{
     let r=await fetch('/api/rates',{cache:'no-store'});
-    if(r.ok){
-      let x=(await r.json()).rate;
-      if(x){
-        R={coVe:+x.co_ve,veCo:+x.ve_co,usdCo:+x.usd_colombia,usdVe:+x.usd_venezuela};
-        pubCoVe.textContent=f(R.coVe);
-        pubVeCo.textContent=f(R.veCo);
-        pubUsdCo.textContent='$ '+f(R.usdCo)+' COP';
-        pubUsdVe.textContent=f(R.usdVe)+' Bs';
-        pubDate.textContent='Vigente desde: '+(x.valid_from||'');
-      }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    let x=(await r.json()).rate;
+    if(x){
+      R={coVe:+x.co_ve,veCo:+x.ve_co,usdCo:+x.usd_colombia,usdVe:+x.usd_venezuela};
+      pubCoVe.textContent=f(R.coVe);
+      pubVeCo.textContent=f(R.veCo);
+      pubUsdCo.textContent='$ '+f(R.usdCo)+' COP';
+      pubUsdVe.textContent=f(R.usdVe)+' Bs';
+      pubDate.textContent='Vigente desde: '+(x.valid_from||'')+(x.valid_to?' · Hasta: '+x.valid_to:'');
+    } else {
+      pubDate.textContent='Tasas base visibles. Publica una nueva tasa desde Administrador para reemplazarlas.';
     }
   }catch(e){
-    pubDate.textContent='No se pudieron cargar las tasas publicadas.';
+    pubDate.textContent='No se pudieron cargar las tasas de Supabase; se muestran valores base.';
   }
-  from.value=new Date().toISOString().slice(0,10);draw();payments();calculate()
+  from.value=new Date().toISOString().slice(0,10);draw();payments();calculate();
 }
 load();
 </script></body></html>
