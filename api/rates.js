@@ -1,30 +1,29 @@
 const DEFAULT_RATES = {
-  cv: 3.98,
-  vc: 3.00,
-  bcv: 857.01,
-  colusd: 3330,
-  buy: 3150,
-  sell: 3360
+  coVe: 3.98,
+  veCo: 3.00,
+  usdCo: 3330,
+  usdVe: 855.66
 };
 
 function send(res, status, body) {
-  res.status(status).setHeader("Content-Type", "application/json");
+  res.status(status);
+  res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(body));
 }
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    let s = "";
+    let data = "";
 
     req.on("data", chunk => {
-      s += chunk;
+      data += chunk;
     });
 
     req.on("end", () => {
       try {
-        resolve(s ? JSON.parse(s) : {});
-      } catch (e) {
-        reject(e);
+        resolve(data ? JSON.parse(data) : {});
+      } catch (error) {
+        reject(error);
       }
     });
 
@@ -34,6 +33,7 @@ function readBody(req) {
 
 async function supabaseRequest(path, options = {}) {
   const url = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
+
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_ANON_KEY;
@@ -72,133 +72,43 @@ async function supabaseRequest(path, options = {}) {
   return data;
 }
 
-module.exports = async (req, res) => {
-  try {
+async function getRates() {
+  const rows = await supabaseRequest(
+    "dorca_rates?select=id,cv,vc,bcv,colusd,buy,sell,updated_at,from_date,to_date&order=id.asc&limit=1"
+  );
 
-    // CONSULTAR TASAS PUBLICADAS
-    if (req.method === "GET") {
+  const row = rows?.[0];
 
-      const rows = await supabaseRequest(
-        "dorca_rates?select=id,cv,vc,bcv,colusd,buy,sell,updated_at,from_date,to_date&order=id.asc&limit=1"
-      );
-
-      return send(res, 200, {
-        ok: true,
-        rates: rows?.[0] || {
-          id: 1,
-          ...DEFAULT_RATES
-        }
-      });
-    }
-
-    // SOLO ACEPTAMOS POST PARA ADMINISTRACIÓN
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "GET, POST");
-
-      return send(res, 405, {
-        ok: false,
-        error: "Método no permitido."
-      });
-    }
-
-    const body = await readBody(req);
-
-    const adminPassword = process.env.ADMIN_PASSWORD;
-
-    if (!adminPassword) {
-      return send(res, 500, {
-        ok: false,
-        error: "ADMIN_PASSWORD no está configurada en Vercel."
-      });
-    }
-
-    // COMPROBAR CONTRASEÑA
-    if (
-      String(body.password || "") !==
-      String(adminPassword)
-    ) {
-      return send(res, 401, {
-        ok: false,
-        error: "Contraseña incorrecta."
-      });
-    }
-
-    // ENTRAR AL ADMINISTRADOR
-    if ((body.action || "login") === "login") {
-
-      const rows = await supabaseRequest(
-        "dorca_rates?select=id,cv,vc,bcv,colusd,buy,sell,updated_at,from_date,to_date&order=id.asc&limit=1"
-      );
-
-      return send(res, 200, {
-        ok: true,
-        authenticated: true,
-        rates: rows?.[0] || {
-          id: 1,
-          ...DEFAULT_RATES
-        }
-      });
-    }
-
-    // GUARDAR NUEVAS TASAS
-    if (body.action === "save") {
-
-      const r = body.rates || {};
-
-      const next = {
-        id: 1,
-
-        cv: Number(r.cv) || DEFAULT_RATES.cv,
-        vc: Number(r.vc) || DEFAULT_RATES.vc,
-        bcv: Number(r.bcv) || DEFAULT_RATES.bcv,
-        colusd: Number(r.colusd) || DEFAULT_RATES.colusd,
-        buy: Number(r.buy) || DEFAULT_RATES.buy,
-        sell: Number(r.sell) || DEFAULT_RATES.sell,
-
-        updated_at: new Date().toISOString(),
-
-        from_date: r.from_date || null,
-        to_date: r.to_date || null
-      };
-
-      const saved = await supabaseRequest(
-        "dorca_rates?on_conflict=id",
-        {
-          method: "POST",
-
-          headers: {
-            Prefer:
-              "resolution=merge-duplicates,return=representation"
-          },
-
-          body: JSON.stringify(next)
-        }
-      );
-
-      return send(res, 200, {
-        ok: true,
-
-        saved: saved?.[0] || next,
-
-        message:
-          "Tasas publicadas correctamente."
-      });
-    }
-
-    return send(res, 400, {
-      ok: false,
-      error: "Acción no reconocida."
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    return send(res, 500, {
-      ok: false,
-      error:
-        error.message ||
-        "Error interno del servidor."
-    });
+  if (!row) {
+    return {
+      co_ve: DEFAULT_RATES.coVe,
+      ve_co: DEFAULT_RATES.veCo,
+      usd_colombia: DEFAULT_RATES.usdCo,
+      usd_venezuela: DEFAULT_RATES.usdVe,
+      valid_from: null,
+      valid_to: null
+    };
   }
-};
+
+  return {
+    co_ve: Number(row.cv ?? DEFAULT_RATES.coVe),
+    ve_co: Number(row.vc ?? DEFAULT_RATES.veCo),
+    usd_colombia: Number(row.colusd ?? DEFAULT_RATES.usdCo),
+    usd_venezuela: Number(row.bcv ?? DEFAULT_RATES.usdVe),
+    valid_from: row.from_date || null,
+    valid_to: row.to_date || null,
+    updated_at: row.updated_at || null
+  };
+}
+
+async function getHistory() {
+  const rows = await supabaseRequest(
+    "dorca_rates?select=id,cv,vc,bcv,colusd,buy,sell,updated_at,from_date,to_date&order=id.desc"
+  );
+
+  return (rows || []).map(row => ({
+    id: row.id,
+    co_ve: Number(row.cv ?? DEFAULT_RATES.coVe),
+    ve_co: Number(row.vc ?? DEFAULT_RATES.veCo),
+    usd_colombia: Number(row.colusd ?? DEFAULT_RATES.usdCo),
+    usd_venezuela: Number(row.bcv ?? DEFAULT_RATES.usdVe
